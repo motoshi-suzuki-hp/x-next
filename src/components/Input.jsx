@@ -10,12 +10,22 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 
+import {
+  addDoc,
+  collection,
+  getFirestore,
+  serverTimestamp,
+} from "firebase/firestore";
+
 export default function Input() {
   const { data: session } = useSession();
   const [imageFileUrl, setImageFileUrl] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [imageFileUploading, setImageFileUploading] = useState(false);
+  const [text, setText] = useState("");
+  const [postLoading, setPostLoading] = useState(false);
   const imagePickRef = useRef(null);
+  const db = getFirestore(app);
   const addImageToPost = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -29,6 +39,7 @@ export default function Input() {
       uploadImageToStorage();
     }
   }, [selectedFile]);
+
   const uploadImageToStorage = async () => {
     setImageFileUploading(true);
     const storage = getStorage(app);
@@ -45,17 +56,34 @@ export default function Input() {
       (error) => {
         console.log(error);
         setImageFileUploading(false);
-        setSelectedFile(null);
+        setImageFileUrl(null);
         setSelectedFile(null);
       },
       () => {
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
           setImageFileUrl(downloadURL);
           setImageFileUploading(false);
-          setSelectedFile(null);
         });
       }
     );
+  };
+
+  const handleSubmit = async () => {
+    setPostLoading(true);
+    const decRef = await addDoc(collection(db, "posts"), {
+      uid: session.user.uid,
+      name: session.user.name,
+      username: session.user.username,
+      text,
+      profileImg: session.user.image,
+      timestamp: serverTimestamp(),
+      image: imageFileUrl,
+    });
+    setPostLoading(false);
+    setText("");
+    setImageFileUrl(null);
+    setSelectedFile(null);
+    location.reload();
   };
 
   if (!session) return null;
@@ -71,12 +99,16 @@ export default function Input() {
           className="w-full border-none outline-none tracking-wide min-h-[50px] text-gray-700"
           placeholder="What's happening?"
           rows="2"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
         ></textarea>
         {selectedFile && (
           <img
             src={imageFileUrl}
             alt="image"
-            className="w-full max-h-[250px] object-cover cursor-pointer"
+            className={`w-full max-h-[250px] object-cover cursor-pointer ${
+              imageFileUploading ? "animate-pulse" : ""
+            }`}
           />
         )}
         <div className="flex items-center justify-between pt-2.5">
@@ -92,8 +124,9 @@ export default function Input() {
             hidden
           />
           <button
-            disabled
+            disabled={text.trim() === "" || postLoading || imageFileUploading}
             className="bg-blue-400 text-white px-4 oy-1.5 rounded-full font-bold shadow-md disabled:opacity-50"
+            onClick={handleSubmit}
           >
             Post
           </button>
