@@ -9,7 +9,7 @@ import {
 } from "react-icons/hi";
 import { useRecoilState } from "recoil";
 
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import {
   collection,
   deleteDoc,
